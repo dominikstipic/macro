@@ -3,19 +3,14 @@ from typing import List, Dict, Callable, Tuple
 import numpy as np
 import pandas as pd
 
-
-class UtilityFactory:
-    def utility1(alpha: float, sigma: float, delta: float):
-        return lambda k1, k2 : utility(k1, k2, alpha, sigma, delta)
-
-
-def production(capital, alpha):
-    return capital**alpha
-
 def utility(k_now, k_next, alpha, sigma, delta):
-    x = production(k_now, alpha) + (1-delta)*k_now - k_next
-    x = x**(1-sigma)
-    return (x-1)/(1-sigma)
+        ct = production(k_now, alpha) + (1-delta)*k_now - k_next
+        ct = ct**(1-sigma)
+        return (ct-1)/(1-sigma)
+
+def utility_log(k_now, k_next, alpha, delta):
+        ct = production(k_now, alpha) + (1-delta)*k_now - k_next
+        return np.log(ct)
 
 def utility_matrix(utility, capitals):
     n = len(capitals)
@@ -24,6 +19,19 @@ def utility_matrix(utility, capitals):
         for j, c2 in enumerate(capitals):
             X[i, j] = utility(c1, c2)
     return X
+
+class UtilityFactory:
+    def utility1(alpha: float, sigma: float, delta: float):
+        return lambda k1, k2 : utility(k1, k2, alpha, sigma, delta)
+
+    def utility2(alpha: float, delta: float):
+        return lambda k1, k2 : utility(k1, k2, alpha, sigma, delta)    
+    
+    def utility3(alpha: float, delta: float):
+        return lambda k1, k2 : utility_log(k1, k2, alpha, delta)  
+
+def production(capital, alpha):
+    return capital**alpha
 
 def consumption(k_now, k_next, alpha, sigma, delta):
     x = (k_now**alpha) + (1-delta)*k_now - k_next
