@@ -49,38 +49,47 @@ def index_of(state, states, precision=0.0001):
             return i
     return -1
 
-def value_iteration(states, utility_function, beta, epsilon=0.0001, max_time=10000):
-    state_values = [0 for _ in range(len(states))]
-    state_path = [[] for _ in states]
-    for t in range(max_time):
-        deltas = np.array([])
-        # Prevent modifications of old values while calucating in the value iteration
-        new_state_values = np.zeros(len(states))
-        new_state_path = list(state_path)
-        for i, s_current in enumerate(states):
-            # For the current node s_current, find the future node with the optimal value. 
-            # value = max { reward(s_current, s_future) + beta * V(s_future) }
-            optim_state, optim_value = bellman(utility_function, state_values, s_current, states, beta)
-            delta = optim_value - state_values[i]
-            deltas = np.append(deltas, delta)
-            new_state_values[i] = optim_value
-            
-            optim_index = index_of(optim_state, states)
-            optim_path = state_path[optim_index]
-            new_state_path[i] = [optim_index] + optim_path
-        if (deltas < epsilon).all():
-            print(f'Converged with time horizont T = {t} !')
-            break
-        # Modify old values with new one. 
-        state_values = new_state_values
-        state_path = new_state_path
-        max_capital = max(state_values)
-        avg_value = sum(state_values)/len(state_values)
-        delta = min(abs(deltas - epsilon))
-        print(f'iter = {t+1}, capital = {max_capital}, avg_value = {avg_value} delta={delta}')
-    state_path = np.array(state_path)
-    state_values = np.array(state_values)
-    return state_values, state_path
+class DP:
+    init_values = np.array([])
+
+    def set_init(self, init_states):
+        self.init_values = init_states
+
+    def value_iteration(self, states, utility_function, beta, epsilon=0.0001, max_time=10000):
+        if len(self.init_values) == 0:
+            state_values = [0 for _ in range(len(states))]
+        else:
+            state_values = self.init_values
+        state_path = [[] for _ in states]
+        for t in range(max_time):
+            deltas = np.array([])
+            # Prevent modifications of old values while calucating in the value iteration
+            new_state_values = np.zeros(len(states))
+            new_state_path = list(state_path)
+            for i, s_current in enumerate(states):
+                # For the current node s_current, find the future node with the optimal value. 
+                # value = max { reward(s_current, s_future) + beta * V(s_future) }
+                optim_state, optim_value = bellman(utility_function, state_values, s_current, states, beta)
+                delta = optim_value - state_values[i]
+                deltas = np.append(deltas, delta)
+                new_state_values[i] = optim_value
+                
+                optim_index = index_of(optim_state, states)
+                optim_path = state_path[optim_index]
+                new_state_path[i] = [optim_index] + optim_path
+            if (deltas < epsilon).all():
+                print(f'Converged with time horizont T = {t} !')
+                break
+            # Modify old values with new one. 
+            state_values = new_state_values
+            state_path = new_state_path
+            max_capital = max(state_values)
+            avg_value = sum(state_values)/len(state_values)
+            delta = min(abs(deltas - epsilon))
+            print(f'iter = {t+1}, capital = {max_capital}, avg_value = {avg_value} delta={delta}')
+        state_path = np.array(state_path)
+        state_values = np.array(state_values)
+        return state_values, state_path
     
 
 def write_csv(ds: dict, csv_name='out.csv'):
