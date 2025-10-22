@@ -7,8 +7,6 @@ def utility(k_now, k_next, alpha, sigma, delta):
         ct = production(k_now, alpha) + (1-delta)*k_now - k_next
         if ct == 0: return np.nan
         u = (ct**(1-sigma)-1)/(1-sigma)
-        print(f"k={k_now}, k_future={k_next}, ct={ct}, ut={u}")
-
         return u
 
 def utility_log(k_now, k_next, alpha, delta):
@@ -59,36 +57,33 @@ def index_of(state, states, precision=0.0001):
 
 def value_iteration(states, utility_function, alpha, beta, capital_deprec, epsilon=0.0001, max_time=10000):
     state_values = [0 for _ in range(len(states))]
-    state_path = [[] for _ in states]
+    state_path = np.empty([len(states), 0])
     for t in range(max_time):
         deltas = np.array([])
-        # Prevent modifications of old values while calucating in the value iteration
         new_state_values = np.zeros(len(states))
-        new_state_path = list(state_path)
+        optim_policy = np.array([])
         for i, s_current in enumerate(states):
-            # For the current node s_current, find the future node with the optimal value. 
-            # value = max { reward(s_current, s_future) + beta * V(s_future) }
             current_capital_stock = production(s_current, alpha) + (1-capital_deprec)*s_current
             optim_state, optim_value = bellman(utility_function, state_values, s_current, states, current_capital_stock, beta)
-            delta = optim_value - state_values[i]
+            delta = abs(optim_value - state_values[i])
             deltas = np.append(deltas, delta)
             new_state_values[i] = optim_value
-            
             optim_index = index_of(optim_state, states)
-            optim_path = state_path[optim_index]
-            new_state_path[i] = [optim_index] + optim_path
-        if (deltas < epsilon).all():
-            print(f'Converged with time horizont T = {t} !')
-            break
-        # Modify old values with new one. 
+            optim_policy = np.append(optim_policy, optim_index)
+       
         state_values = new_state_values
-        state_path = new_state_path
+        state_path = np.hstack([np.array(optim_policy).reshape(-1,1), state_path])
+        if (deltas < epsilon).all():
+            print(f"Coverged in iter = {t}")
+            break
+
         max_capital = max(state_values)
         avg_value = sum(state_values)/len(state_values)
         delta = min(abs(deltas - epsilon))
         print(f'iter = {t+1}, capital = {max_capital}, avg_value = {avg_value} delta={delta}')
-    state_path = np.array(state_path)
+        
     state_values = np.array(state_values)
+    state_path = np.array(state_path)
     return state_values, state_path
     
 
@@ -99,15 +94,16 @@ def write_csv(ds: dict, csv_name='out.csv'):
 
 
 if __name__ == "__main__":
-    alpha = 0.3
-    delta = 1
-    sigma = 2
-    beta = 0.9
+    alpha = 0.4
+    delta = 0.04
+    beta = 0.96
+    epsilon = 0.0001
 
-    capital = [0.1, 0.5, 1.0, 1.5, 2.0]
-    u = UtilityFactory.utility1(alpha=alpha, sigma=sigma, delta=delta)
-    state_values, state_path = value_iteration(capital, u, alpha=alpha, beta=beta, capital_deprec=delta, max_time=10)
-    print(state_values)
+    capital = np.linspace(5, 20, num=1000)
+    u = UtilityFactory.utility3(alpha, delta)
+    state_values, state_path = value_iteration(states=capital, utility_function=u, alpha=alpha, beta=beta, capital_deprec=delta, epsilon=epsilon, max_time=500)
+    np.save('path.npy', state_path)
+    np.save('state_values.npy', state_values)
 
 
 
