@@ -76,7 +76,7 @@ def value_iteration(states, utility_function, alpha, beta, capital_deprec, epsil
         if (deltas < epsilon).all():
             print(f"Coverged in iter = {t}")
             break
-
+        
         max_capital = max(state_values)
         avg_value = sum(state_values)/len(state_values)
         delta = min(abs(deltas - epsilon))
@@ -102,8 +102,8 @@ if __name__ == "__main__":
     capital = np.linspace(5, 20, num=1000)
     u = UtilityFactory.utility3(alpha, delta)
     state_values, state_path = value_iteration(states=capital, utility_function=u, alpha=alpha, beta=beta, capital_deprec=delta, epsilon=epsilon, max_time=500)
-    np.save('path.npy', state_path)
-    np.save('state_values.npy', state_values)
+    #np.save('path.npy', state_path)
+    #np.save('state_values.npy', state_values)
 
 
 
