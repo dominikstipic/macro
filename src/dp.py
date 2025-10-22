@@ -110,7 +110,8 @@ if __name__ == "__main__":
 
     capital = np.linspace(5, 20, num=1000)
     u = UtilityFactory.utility3(alpha, delta)
-    state_values, state_path = value_iteration(states=capital, utility_function=u, alpha=alpha, beta=beta, capital_deprec=delta, epsilon=epsilon, max_time=500)
+    state_values, state_path = DP().value_iteration(states=capital, utility_function=u, alpha=alpha, beta=beta, capital_deprec=delta, epsilon=epsilon)
+    #state_values, state_path = value_iteration(states=capital, utility_function=u, alpha=alpha, beta=beta, capital_deprec=delta, epsilon=epsilon, max_time=500)
     #np.save('path.npy', state_path)
     #np.save('state_values.npy', state_values)
 

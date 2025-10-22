@@ -9,3 +9,5 @@
 
 
 * Policy or trajectory for initial capital levels is stored as a matrix in the `repo/path.npy`. Optimal values are stored as a vector in the state_values.npy.  
+
+* Optimization and code is defined in the `src/dp.py`
