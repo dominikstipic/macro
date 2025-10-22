@@ -55,36 +55,45 @@ def index_of(state, states, precision=0.0001):
             return i
     return -1
 
-def value_iteration(states, utility_function, alpha, beta, capital_deprec, epsilon=0.0001, max_time=10000):
-    state_values = [0 for _ in range(len(states))]
-    state_path = np.empty([len(states), 0])
-    for t in range(max_time):
-        deltas = np.array([])
-        new_state_values = np.zeros(len(states))
-        optim_policy = np.array([])
-        for i, s_current in enumerate(states):
-            current_capital_stock = production(s_current, alpha) + (1-capital_deprec)*s_current
-            optim_state, optim_value = bellman(utility_function, state_values, s_current, states, current_capital_stock, beta)
-            delta = abs(optim_value - state_values[i])
-            deltas = np.append(deltas, delta)
-            new_state_values[i] = optim_value
-            optim_index = index_of(optim_state, states)
-            optim_policy = np.append(optim_policy, optim_index)
-       
-        state_values = new_state_values
-        state_path = np.hstack([np.array(optim_policy).reshape(-1,1), state_path])
-        if (deltas < epsilon).all():
-            print(f"Coverged in iter = {t}")
-            break
+class DP:
+    init_values = np.array([])
+
+    def set_init(self, init_states):
+        self.init_values = init_states
+
+    def value_iteration(self, states, utility_function, alpha, beta, capital_deprec, epsilon=0.0001, max_time=10000):
+        if len(self.init_values) == 0:
+            state_values = [0 for _ in range(len(states))]
+        else:
+            state_values = self.init_values
+        state_path = np.empty([len(states), 0])
+        for t in range(max_time):
+            deltas = np.array([])
+            new_state_values = np.zeros(len(states))
+            optim_policy = np.array([])
+            for i, s_current in enumerate(states):
+                current_capital_stock = production(s_current, alpha) + (1-capital_deprec)*s_current
+                optim_state, optim_value = bellman(utility_function, state_values, s_current, states, current_capital_stock, beta)
+                delta = abs(optim_value - state_values[i])
+                deltas = np.append(deltas, delta)
+                new_state_values[i] = optim_value
+                optim_index = index_of(optim_state, states)
+                optim_policy = np.append(optim_policy, optim_index)
         
-        max_capital = max(state_values)
-        avg_value = sum(state_values)/len(state_values)
-        delta = min(abs(deltas - epsilon))
-        print(f'iter = {t+1}, capital = {max_capital}, avg_value = {avg_value} delta={delta}')
-        
-    state_values = np.array(state_values)
-    state_path = np.array(state_path)
-    return state_values, state_path
+            state_values = new_state_values
+            state_path = np.hstack([np.array(optim_policy).reshape(-1,1), state_path])
+            if (deltas < epsilon).all():
+                print(f"Coverged in iter = {t}")
+                break
+            
+            max_capital = max(state_values)
+            avg_value = sum(state_values)/len(state_values)
+            delta = min(abs(deltas - epsilon))
+            print(f'iter = {t+1}, capital = {max_capital}, avg_value = {avg_value} delta={delta}')
+            
+        state_values = np.array(state_values)
+        state_path = np.array(state_path)
+        return state_values, state_path
     
 
 def write_csv(ds: dict, csv_name='out.csv'):
