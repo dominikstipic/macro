@@ -5,8 +5,11 @@ import pandas as pd
 
 def utility(k_now, k_next, alpha, sigma, delta):
         ct = production(k_now, alpha) + (1-delta)*k_now - k_next
-        ct = ct**(1-sigma)
-        return (ct-1)/(1-sigma)
+        if ct == 0: return np.nan
+        u = (ct**(1-sigma)-1)/(1-sigma)
+        print(f"k={k_now}, k_future={k_next}, ct={ct}, ut={u}")
+
+        return u
 
 def utility_log(k_now, k_next, alpha, delta):
         ct = production(k_now, alpha) + (1-delta)*k_now - k_next
@@ -14,7 +17,7 @@ def utility_log(k_now, k_next, alpha, delta):
 
 def utility_matrix(utility, capitals):
     n = len(capitals)
-    X = np.zeros((n, n))
+    X = np.zeros((n, n))    
     for i, c1 in enumerate(capitals):
         for j, c2 in enumerate(capitals):
             X[i, j] = utility(c1, c2)
@@ -22,10 +25,13 @@ def utility_matrix(utility, capitals):
 
 class UtilityFactory:
     def utility1(alpha: float, sigma: float, delta: float):
-        return lambda k1, k2 : utility(k1, k2, alpha, sigma, delta)
+        return lambda k1, k2 : utility(k1, k2, alpha=alpha, sigma=sigma, delta=delta)
 
     def utility2(alpha: float, delta: float):
-        return lambda k1, k2 : utility(k1, k2, alpha, sigma, delta)    
+        """
+            Sigma = 1
+        """
+        return lambda k1, k2 : utility(k1, k2, alpha, 1.0, delta)    
     
     def utility3(alpha: float, delta: float):
         return lambda k1, k2 : utility_log(k1, k2, alpha, delta)  
@@ -38,8 +44,10 @@ def consumption(k_now, k_next, alpha, sigma, delta):
     x = x**(1-sigma)
     return (x-1)/(1-sigma)
 
-def bellman(utility: Callable[[float, float], float], state_values: Dict[float, float], s0: float, states: List[float], beta: float) -> Tuple[float, float]:
-    state_value_list = [(s, utility(s0, s) + beta*state_values[i]) for i, s in enumerate(states)]
+def bellman(utility: Callable[[float, float], float], state_values: Dict[float, float], s0: float, states: List[float], current_capital_stock: list, beta: float) -> Tuple[float, float]:
+    state_value_list = [(s, utility(s0, s) + beta*state_values[i]) for i, s in enumerate(states) if s <= current_capital_stock]
+    if s0 == 2.0:
+        print()
     state_value = max(state_value_list, key=lambda x : x[1])
     return state_value[0], state_value[1]
 
@@ -49,7 +57,7 @@ def index_of(state, states, precision=0.0001):
             return i
     return -1
 
-def value_iteration(states, utility_function, beta, epsilon=0.0001, max_time=10000):
+def value_iteration(states, utility_function, alpha, beta, capital_deprec, epsilon=0.0001, max_time=10000):
     state_values = [0 for _ in range(len(states))]
     state_path = [[] for _ in states]
     for t in range(max_time):
@@ -60,7 +68,8 @@ def value_iteration(states, utility_function, beta, epsilon=0.0001, max_time=100
         for i, s_current in enumerate(states):
             # For the current node s_current, find the future node with the optimal value. 
             # value = max { reward(s_current, s_future) + beta * V(s_future) }
-            optim_state, optim_value = bellman(utility_function, state_values, s_current, states, beta)
+            current_capital_stock = production(s_current, alpha) + (1-capital_deprec)*s_current
+            optim_state, optim_value = bellman(utility_function, state_values, s_current, states, current_capital_stock, beta)
             delta = optim_value - state_values[i]
             deltas = np.append(deltas, delta)
             new_state_values[i] = optim_value
@@ -90,20 +99,15 @@ def write_csv(ds: dict, csv_name='out.csv'):
 
 
 if __name__ == "__main__":
-    alpha = 0.4
-    delta = 0.04
-    sigma = 0.5
-    beta = 0.96
-    epsilon = 0.0001
+    alpha = 0.3
+    delta = 1
+    sigma = 2
+    beta = 0.9
 
-    capital = np.linspace(5, 6, num=3)
-    u = UtilityFactory.utility1(alpha, sigma, delta)
-    print(f'CAPITAL LEVELS = {capital}')
-
-    state_values, state_path = value_iteration(capital, u, beta)
+    capital = [0.1, 0.5, 1.0, 1.5, 2.0]
+    u = UtilityFactory.utility1(alpha=alpha, sigma=sigma, delta=delta)
+    state_values, state_path = value_iteration(capital, u, alpha=alpha, beta=beta, capital_deprec=delta, max_time=10)
     print(state_values)
-    #write_csv(state_values)
-
 
 
 
