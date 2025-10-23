@@ -1,15 +1,29 @@
 import matplotlib.pyplot as plt
-import numpy as np
 from dp import UtilityFactory, DP
+import pandas as pd
 
-# Check the transformation from state index matrix to the capital level matrix with vectorize
+df = pd.read_csv('../repo/test.csv')
+capital = (df['k']).to_numpy()
 
-alpha = 0.3
-delta = 1
-sigma = 0.6
-beta = 0.9
+alpha = 0.4
+delta = 0.1
+sigma = 3
+beta = 0.95
+utility = UtilityFactory.utility1(alpha=alpha, sigma=sigma, delta=delta)
 
-capital = [0.1, 0.5, 1.0, 1.5, 2.0]
-u = UtilityFactory.utility1(alpha=alpha, sigma=sigma, delta=delta)
-state_values, state_path = DP().value_iteration(states=capital, utility_function=u, alpha=alpha, beta=beta, capital_deprec=delta, epsilon=0.0001, max_time=3)
-print(state_path)
+dp = DP(states=capital, 
+        utility_function=utility, 
+        alpha=alpha, 
+        beta=beta, 
+        capital_deprec=delta, 
+        epsilon=0.0001)
+
+for i in range(1, 6):
+    col_value, col_policy = f'V{i}', f'policy{i}'
+    target_values = df[col_value].to_numpy()
+    target_policy = df[col_policy].to_numpy()
+    dp.state_values, optim_policy_level = dp.next()
+    optim_policy = capital[optim_policy_level]
+    policy_bool = optim_policy == target_policy
+    delta = abs(target_values - dp.state_values) < 10**-4
+    print(f'iter={i} value success:{delta.all()} policy success:{policy_bool.all()}')

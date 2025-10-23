@@ -34,8 +34,8 @@ class UtilityFactory:
     def utility3(alpha: float, delta: float):
         return lambda k1, k2 : utility_log(k1, k2, alpha, delta)  
 
-def production(capital, alpha):
-    return capital**alpha
+def production(capital, alpha, augmentation=0.8):
+    return augmentation*(capital**alpha)
 
 def consumption(k_now, k_next, alpha, sigma, delta):
     x = (k_now**alpha) + (1-delta)*k_now - k_next
@@ -44,8 +44,6 @@ def consumption(k_now, k_next, alpha, sigma, delta):
 
 def bellman(utility: Callable[[float, float], float], state_values: Dict[float, float], s0: float, states: List[float], current_capital_stock: list, beta: float) -> Tuple[float, float]:
     state_value_list = [(s, utility(s0, s) + beta*state_values[i]) for i, s in enumerate(states) if s <= current_capital_stock]
-    if s0 == 2.0:
-        print()
     state_value = max(state_value_list, key=lambda x : x[1])
     return state_value[0], state_value[1]
 
@@ -57,44 +55,51 @@ def index_of(state, states, precision=0.0001):
 
 class DP:
     init_values = np.array([])
+    t = 0
+
+    def __init__(self, states, utility_function, alpha, beta, capital_deprec, epsilon=0.0001):
+        self.states=states
+        self.utility_function=utility_function
+        self.alpha=alpha
+        self.beta=beta
+        self.capital_deprec=capital_deprec
+        self.epsilon=epsilon
+        self.state_values = np.zeros(len(states))
+        
 
     def set_init(self, init_states):
         self.init_values = init_states
 
-    def value_iteration(self, states, utility_function, alpha, beta, capital_deprec, epsilon=0.0001, max_time=10000):
-        if len(self.init_values) == 0:
-            state_values = [0 for _ in range(len(states))]
-        else:
-            state_values = self.init_values
-        state_path = np.empty([len(states), 0])
-        for t in range(max_time):
-            deltas = np.array([])
-            new_state_values = np.zeros(len(states))
-            optim_policy = np.array([])
-            for i, s_current in enumerate(states):
-                current_capital_stock = production(s_current, alpha) + (1-capital_deprec)*s_current
-                optim_state, optim_value = bellman(utility_function, state_values, s_current, states, current_capital_stock, beta)
-                delta = abs(optim_value - state_values[i])
-                deltas = np.append(deltas, delta)
+    def _next(self):
+        new_state_values = np.zeros(len(self.states))
+        optim_policy = np.array([])
+        for i, s_current in enumerate(self.states):
+                current_capital_stock = production(s_current, self.alpha) + (1-self.capital_deprec)*s_current
+                optim_state, optim_value = bellman(self.utility_function, self.state_values, s_current, self.states, current_capital_stock, self.beta)
                 new_state_values[i] = optim_value
-                optim_index = index_of(optim_state, states)
+                optim_index = index_of(optim_state, self.states)
                 optim_policy = np.append(optim_policy, optim_index)
-        
-            state_values = new_state_values
-            state_path = np.hstack([np.array(optim_policy).reshape(-1,1), state_path])
-            if (deltas < epsilon).all():
-                print(f"Coverged in iter = {t}")
-                break
-            
-            max_capital = max(state_values)
-            avg_value = sum(state_values)/len(state_values)
-            delta = min(abs(deltas - epsilon))
-            print(f'iter = {t+1}, capital = {max_capital}, avg_value = {avg_value} delta={delta}')
-            
-        state_values = np.array(state_values)
-        state_path = np.array(state_path)
-        return state_values, state_path
+        deltas = abs(new_state_values - self.state_values)
+        self.t += 1
+        return new_state_values, optim_policy, deltas
     
+    def next(self):
+        new_state_values, optim_policy, _ = self._next()
+        return new_state_values, optim_policy.astype(int)
+
+    def run(self, max_time=1000):
+        state_path = np.empty([len(self.states), 0])
+        while self.t < max_time:
+            new_state_values, optim_policy, deltas = self._next()
+            self.state_values = new_state_values
+            state_path = np.hstack([np.array(optim_policy).reshape(-1,1), state_path])
+            if (deltas < self.epsilon).all():
+                print(f"Coverged in iter = {self.t}")
+                break
+            avg_value = self.state_values.mean()
+            delta = abs(deltas - self.epsilon).max()
+            print(f'iter = {self.t}, avg_value = {avg_value} delta={delta}')
+        return self.state_values, state_path
 
 def write_csv(ds: dict, csv_name='out.csv'):
     ds = {k: [v] for k, v in ds.items()}
@@ -109,13 +114,16 @@ if __name__ == "__main__":
     epsilon = 0.0001
 
     capital = np.linspace(5, 20, num=1000)
-    u = UtilityFactory.utility3(alpha, delta)
-    state_values, state_path = DP().value_iteration(states=capital, utility_function=u, alpha=alpha, beta=beta, capital_deprec=delta, epsilon=epsilon)
-    #state_values, state_path = value_iteration(states=capital, utility_function=u, alpha=alpha, beta=beta, capital_deprec=delta, epsilon=epsilon, max_time=500)
+    utility = UtilityFactory.utility3(alpha, delta)
+    
+    dp = DP(states=capital, 
+            utility_function=utility, 
+            alpha=alpha, 
+            beta=beta, 
+            capital_deprec=delta, 
+            epsilon=epsilon)
+    state_values, state_path = dp.run()
     #np.save('path.npy', state_path)
     #np.save('state_values.npy', state_values)
 
 
-
-
-#def value_iteration(capital, utility, )
