@@ -5,7 +5,7 @@ import pandas as pd
 
 def utility(k_now, k_next, alpha, sigma, delta):
         ct = production(k_now, alpha) + (1-delta)*k_now - k_next
-        if ct == 0: return np.nan
+        #if ct == 0: return np.nan
         u = (ct**(1-sigma)-1)/(1-sigma)
         return u
 
@@ -34,7 +34,7 @@ class UtilityFactory:
     def utility3(alpha: float, delta: float):
         return lambda k1, k2 : utility_log(k1, k2, alpha, delta)  
 
-def production(capital, alpha, augmentation=0.8):
+def production(capital, alpha, augmentation=1):
     return augmentation*(capital**alpha)
 
 def consumption(k_now, k_next, alpha, sigma, delta):
@@ -42,16 +42,6 @@ def consumption(k_now, k_next, alpha, sigma, delta):
     x = x**(1-sigma)
     return (x-1)/(1-sigma)
 
-def bellman(utility: Callable[[float, float], float], state_values: Dict[float, float], s0: float, states: List[float], current_capital_stock: list, beta: float) -> Tuple[float, float]:
-    state_value_list = [(s, utility(s0, s) + beta*state_values[i]) for i, s in enumerate(states) if s <= current_capital_stock]
-    state_value = max(state_value_list, key=lambda x : x[1])
-    return state_value[0], state_value[1]
-
-def index_of(state, states, precision=0.0001):
-    for i, s in enumerate(states):
-        if abs(s - state) <= precision:
-            return i
-    return -1
 
 class DP:
     init_values = np.array([])
@@ -70,14 +60,19 @@ class DP:
     def set_init(self, init_states):
         self.init_values = init_states
 
+    def bellman(self, utility: Callable[[float, float], float], state_values: Dict[float, float], s0: float, states: List[float], current_capital_stock: list, beta: float) -> Tuple[float, float]:
+        # 0 < k' < f(k)
+        states[(states > current_capital_stock) | (states < 0)] = np.nan
+        values = utility(s0, states) + beta*state_values
+        return np.nanargmax(values), np.nanmax(values)
+
     def _next(self):
         new_state_values = np.zeros(len(self.states))
         optim_policy = np.array([])
         for i, s_current in enumerate(self.states):
                 current_capital_stock = production(s_current, self.alpha) + (1-self.capital_deprec)*s_current
-                optim_state, optim_value = bellman(self.utility_function, self.state_values, s_current, self.states, current_capital_stock, self.beta)
+                optim_index, optim_value = self.bellman(self.utility_function, self.state_values, s_current, np.array(self.states), current_capital_stock, self.beta)
                 new_state_values[i] = optim_value
-                optim_index = index_of(optim_state, self.states)
                 optim_policy = np.append(optim_policy, optim_index)
         deltas = abs(new_state_values - self.state_values)
         self.t += 1
@@ -88,17 +83,18 @@ class DP:
         return new_state_values, optim_policy.astype(int)
 
     def run(self, max_time=1000):
-        state_path = np.empty([len(self.states), 0])
+        state_path = np.arange(0, len(self.state_values)).reshape(-1, 1)
         while self.t < max_time:
-            new_state_values, optim_policy, deltas = self._next()
-            self.state_values = new_state_values
-            state_path = np.hstack([np.array(optim_policy).reshape(-1,1), state_path])
+            self.state_values, optim_policy, deltas = self._next()
+            state_path = np.hstack([optim_policy.reshape(-1, 1), state_path])
             if (deltas < self.epsilon).all():
                 print(f"Coverged in iter = {self.t}")
                 break
             avg_value = self.state_values.mean()
             delta = abs(deltas - self.epsilon).max()
             print(f'iter = {self.t}, avg_value = {avg_value} delta={delta}')
+        for i in range(len(state_path)): 
+            state_path[i] = state_path[i][::-1]
         return self.state_values, state_path
 
 def write_csv(ds: dict, csv_name='out.csv'):
@@ -122,8 +118,9 @@ if __name__ == "__main__":
             beta=beta, 
             capital_deprec=delta, 
             epsilon=epsilon)
-    state_values, state_path = dp.run()
-    #np.save('path.npy', state_path)
-    #np.save('state_values.npy', state_values)
+    state_values, state_path = dp.run(300)
+    print(state_path)
+    np.save('../repo/path.npy', state_path)
+    np.save('../repo/state_values.npy', state_values)
 
 

@@ -26,4 +26,4 @@ for i in range(1, 6):
     optim_policy = capital[optim_policy_level]
     policy_bool = optim_policy == target_policy
     delta = abs(target_values - dp.state_values) < 10**-4
-    print(f'iter={i} value success:{delta.all()} policy success:{policy_bool.all()}')
+    # print(f'iter={i} value success:{delta.all()} policy success:{policy_bool.all()}')
