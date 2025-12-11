@@ -32,37 +32,42 @@ def shoot(capital, consumption, gov_spending, alpha, beta, delta, gamma):
     return_t = 1 - delta + np.pow(alpha*capital_next, alpha-1)
     return consumption_next, capital_next, return_t
 
-def generate_sequence(TS, c0, k0, government_spending, alpha, beta, delta, epsilon=10**-1, CDELTA=0.00001):
+def generate_sequence(TS, c0, k0, government_spending, alpha, beta, delta, gamma, epsilon=10**-1, CDELTA=0.00001, maxiter=10000):
     kss = capital_steady_state(alpha, beta, delta)
-    nan = False
-    k0 = 10
-    for c0 in np.linspace(0.1,0.8, 10000):
+    for _ in range(maxiter) :
+        error = False
         ct = np.array([c0])
         kt = np.array([k0])
         r0 = 1 - delta + marginal_production(k0, alpha)
         rt = np.array([r0])
         for _ in range(TS):
             c, k, r = shoot(kt[-1], ct[-1], government_spending, alpha, beta, delta, gamma)
-            if np.isnan(c) or  np.isnan(k) or np.isnan(r):
-                nan = True
-                break
+            if np.isnan(c) or np.isnan(k) or np.isnan(r) or np.isinf(c) or np.isinf(k) or np.isinf(r):
+                if kt[-1] < kss: 
+                    error = -np.inf # Signal collapse/undershoot
+                    break
+                else: 
+                    error = np.inf # Signal explosion/overshoot
+                    break
             ct = np.append(ct, c)
             kt = np.append(kt, k)
             rt = np.append(rt, r)
 
-        if nan:
-            nan = False
-        distance = (kt[-1]-kss)/kss 
-        print(f'c={ct[-1]}, k={kt[-1]}, r={rt[-1]}, distance={distance}')
-        if (abs(distance) <= epsilon): 
-            print('SOLUTION FOUND!')
-            return ct, kt, rt
+        if error == np.inf:
+            c0 += CDELTA * 10
+        elif error == -np.inf:
+            c0 -= CDELTA * 10
         else:
-            if distance > 0:
-                c0 += CDELTA
+            distance = (kt[-1]-kss)/kss 
+            print(f'c={ct[-1]}, k={kt[-1]}, r={rt[-1]}, distance={distance}')
+            if (abs(distance) <= epsilon): 
+                print('SOLUTION FOUND!')
+                return ct, kt, rt
             else:
-                c0 -= CDELTA
-    print('SOLUTION NOT FOUND!')
+                if kt[-1] > kss:
+                    c0 += CDELTA
+                else:
+                    c0 -= CDELTA
 
 alpha = 0.33
 delta = 0.2
@@ -70,18 +75,12 @@ gamma = 2
 beta = 0.95
 government_spending_old = 0.2 
 government_spending_new = 0.25
-TS = 50
+TS = 1000
 
 kss = capital_steady_state(alpha, beta, delta) # 1.48
 c0 = production(kss, alpha) - delta*kss - government_spending_old # 0.643
 
-k0 = 10
-c0 = 1.5
-#k_1, c_1, _ = shoot(k0, c0, 0, alpha, beta, delta, gamma)
-
-#print(f"Initial (t=0): k = {k0:.4f}, c = {c0:.4f}")
-#print(f"Next Period (t=1): k = {k_1:.4f}, c = {c_1:.4f}")
-
 print(f'CAPITAL STEADY STATE = {kss}, CONSUMPTION STEADY STATE = {c0}')
-tax = generate_sequence(TS, c0, kss, government_spending_new, alpha, beta, delta)
+css, kss, rss = generate_sequence(TS, c0, kss, government_spending_new, alpha, beta, delta, gamma)
+print(css[-1], kss[-1], rss[-1])
 
