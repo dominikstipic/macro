@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 def production(k, alpha):
     return k**alpha
@@ -82,5 +83,13 @@ c0 = production(kss, alpha) - delta*kss - government_spending_old # 0.643
 
 print(f'CAPITAL STEADY STATE = {kss}, CONSUMPTION STEADY STATE = {c0}')
 css, kss, rss = generate_sequence(TS, c0, kss, government_spending_new, alpha, beta, delta, gamma)
-print(css[-1], kss[-1], rss[-1])
+
+def calculate_taxes(beta, government_spending, css):
+    TS = len(css)
+    betas = np.array([beta**i for i in range(TS)])
+    S = sum(betas*css)
+    return government_spending/((1-beta)*S)
+
+t = calculate_taxes(beta, government_spending_new, css)
+print(f'TAX = {t}')
 
